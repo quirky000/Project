@@ -10,7 +10,7 @@
 - 客户端还能给节点添加**watch**, 也就是**监听器**, 可以监听节点的变化。
 
 #### 节点结构
-![image](http://aidata100.com/bigdata/zphtm/bd0122/4dd9ba9b-1f0c-4bb3-b6dc-a6b9abd7520a.001.png)
+![image](http://aidata100.com/bigdata/zphtm/bd0122/4dd9ba9b-1f0c-4bb3-b6dc-a6b9abd7520a.001.png)  
 上图**每个节点**称为一个**Znode**，Znode的组成为三部分：
 1. **stat**：此为**状态信息**, 描述该 Znode 的版本, 权限等信息。
 2. **data**：与该 Znode 关联的**数据**。
