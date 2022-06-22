@@ -22,7 +22,7 @@
 6. listener线程**内部**调用了**process()方法**.此方法是程序员**自定义**的方法, 里面可以**写明**监听到事件后做如何的**通知操作**。
 
 ### 监听器实际运用
-![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqRsO0GbyIrTnfvPutZtzuoCmS6pHH*6j1riq3VBZvJjCToIDbb4ZzAUASBaY2mn8UAmw5fp0W8vHFro7gQQcZCI!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
+![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqbY*DDaHH4w5TAWJvdmOH2w70kN1YY.gc0GGbdb1CpHUsauZ0ncFH8Qd1MajzN8J7J0XJ7xzSCJBTHKwwW1lODg!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 1. 先想zk集群**注册**一个监听器, 监听某一个**节点路径**。
 2. **主要服务器**启动, 就去zk上指定路径下创建一个**临时节点**。
 3. 监听器监听servers下面的子节点有没有变化, 一旦**有变化**, 不管新增(机器上线)还是减少(机器下线)都会马上给对应的人发送通知。
