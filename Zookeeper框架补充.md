@@ -89,4 +89,40 @@ ZK框架提供的服务包括: **统一命名服务、 统一配置管理、统�
 5. 如果自己没有获取到锁, 就等待, 一直监听节点是否消失，**锁被释放后**, 再**重新执行抢夺**锁的操作。
 ![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqRpvUD4YP6bGPij42gGnDibR3oLW9D2BGCdr79lneJ6JDgf3J4*smMp.LBm02De5w3JuJhzSRB8M7wE6WiZ4Ix8!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 
-# 三、
+# 三、Zookeeper集群
+### 1. ZK集群  
+
+为保证Zookeeper的**高可用**, 需要部署Zookeeper的集群。Zookeeper 有三种运行模式: **单机模式, 集群模式和伪集群模式**。
+- **单机模式**: 使用**一台主机不是一个Zookeeper**来对外提供服务, 有单点故障问题, 仅**适合于开发、测试环境**。
+- **集群模式**: 使用**多台服务器**, 每台上部署一个Zookeeper一起对外提供服务, 适合于**生产环境**。
+- **伪集群模式**: 在**服务器不够多**的情况下, 也可以考虑在**一台服务器**上部署**多个Zookeeper**来对外提供服务。
+
+### 2. 数据一致性处理
+保证分布式系统的数据一致性的方法。
+- **集群角色**  
+1. **Leader**: 负责**投票的发起和决议**, **更新系统状态**, 是**事务请求**(写请求) 的**唯一处理者**, 一个ZooKeeper**同一时刻**只会有一个Leader. 对于create创建/setData修改/delete删除等有写操作的请求, 则需要**统一转发**给leader 处理, leader 需要**决定编号和执行操作**, 这个过程称为一个**事务**。  
+2. **Follower**: 接收**客户端请求**, 参与**选主投票**。 处理**客户端非事务(读操作)请求**，转发**事务请求**(写请求)给Leader。  
+3. **Observer**: 针对**访问量比较大**的zookeeper 集群, 为了**增加并发的读请求**. 还可**新增观察者角色**。  
+     **作用**: 可以接受客户端请求, 把请求转发给leader, **不参与投票, 只同步leader的状态**。
+
+- **Zookeeper的特性**  
+1. **Zookeeper**: 一个领导者(Leader), 多个跟随者(Follower)组成的集群。
+2. 集群中只要有**半数**以上节点**存活**, Zookeeper集群就能正常服务。
+3. **全局数据一致**: 每个Server保存一份相同的数据副本, Client无论连接到哪个Server, 数据都是一致的。
+4. **更新请求顺序性**: 从**同一个**客户端发起的事务请求,最终会严格按照顺序被应用到zookeeper中。
+5. **数据更新原子性**: 一次数据更新要么成功, 要么失败。
+6. **实时性**：在一定时间范围内，Client能读到最新数据。
+
+- **ZAB协议**  
+1. Zookeeper采用**ZAB(Zookeeper Atomic Broadcast)协议**来保证**分布式数据一致性**。
+2. ZAB并不是一种通用的分布式一致性算法,而是一种**专为Zookeeper设计的崩溃可恢复的原子消息广播算法**。ZAB协议包括两种基本模式: **崩溃恢复模式**和 **消息广播模式**。  
+**2-1.** **消息广播模式**：用来进行**事务请求**的处理。  
+**2-2.** **崩溃恢复模式**：用来在集群**启动**过程,或者Leader服务器**崩溃退出**后进行新的Leader**服务器的选举**以及**数据同步**。  
+- **ZK集群写数据流程**  
+![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqQAjAKUOaBeT5oCet9GVYKnoBPrVQ.a7pHF3dDO3yjmrh8ARYtojg3GnRFIZ.uW.axG5NpGWSnK8JAtHVkC9UqM!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
+1. **Client**向Zookeeper的**Server1**上写数据, 发送一个写请求。
+2. 如果Server1不是**Leader**, 那么Server1会把接受的请求进一步转发给Leader, 因为每个Zookeeper的Server里面有一个是Leader. 这个Leader会将写请求**广播**给各个Server, 比如Server1和Server2, 各个Server会将该写请求加入**待写队列**, 并向Leader发送成功信息(**ack反馈机制**)。
+3. 当Leader收到**半数**以上Server的**成功信息**, 说明该写操作**可以执行**。 Leader会向**各个**Server发送**事务提交信息**, 各个Server收到信息后会落实队列里面的写请求, 此时写成功。
+4. Server1会进一步**通知**Client数据写成功了, 这是就认为整个写操纵成功。
+
+### 3. ZK集群选举机制
