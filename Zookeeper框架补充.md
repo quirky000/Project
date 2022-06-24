@@ -22,7 +22,7 @@
 6. listener线程**内部**调用了**process()方法**.此方法是程序员**自定义**的方法, 里面可以**写明**监听到事件后做如何的**通知操作**。
 
 ### 监听器实际运用
-![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqRsO0GbyIrTnfvPutZtzuoCmS6pHH*6j1riq3VBZvJjCToIDbb4ZzAUASBaY2mn8UAmw5fp0W8vHFro7gQQcZCI!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
+![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqbY*DDaHH4w5TAWJvdmOH2w70kN1YY.gc0GGbdb1CpHUsauZ0ncFH8Qd1MajzN8J7J0XJ7xzSCJBTHKwwW1lODg!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 1. 先想zk集群**注册**一个监听器, 监听某一个**节点路径**。
 2. **主要服务器**启动, 就去zk上指定路径下创建一个**临时节点**。
 3. 监听器监听servers下面的子节点有没有变化, 一旦**有变化**, 不管新增(机器上线)还是减少(机器下线)都会马上给对应的人发送通知。
@@ -61,7 +61,32 @@ ZK框架提供的服务包括: **统一命名服务、 统一配置管理、统�
 ![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqeoHC0c20AHxHJ8SS5*SAtGTdTBoO4fIRLLkTyfoGdYz*66C.Jjq.758m50Don1KwYgqi8ZgETnpmNG0G2PTTCs!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 
 ### 4.集群选主
+利用的是zookeeper的**临时节点**。
+
+**需求**: 在集群中, 很多情况下是要区分主从节点的, 一般情况下主节点负责**数据写入**, 从节点负责**数据读取**, 那么问题来了, 怎么确定哪一个节点是主节点的, 当一个主节点宕机的时候, 其他从节点怎么**再来选出一个主节点**呢？
+
+**实现**：使用Zookeeper的**临时节点**可以轻松实现这一需求, 我们把上面描述的这个过程称为集群选主的过程, 首先**所有**的节点都认为是**从节点**, 都有机会称为主节点, 然后开始选主, 步骤比较简单。
+
+- 所有参与选主的主机都去Zookeeper上创建**同一个**临时节点，那么最终一定**只有一个**客户端请求能够 创建成功。
+- **成功创建节点**的客户端所在的机器就成为了Master，其他没有成功创建该节点的客户端，成为从节点
+- 所有的从节点都会在主节点上注册一个子节点变更的Watcher，用于**监控**当前**主节点**是否**存活**，一旦 发现当前的主节点挂了，那么其他客户端将会**重新进行选主**。 
+
+![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqd.yVPhLXX4Dha0.w4QRWBXrWYHPDvcoG.D0oVFII3*U*mYmYfKZ*n9QgVJ8Wjpq5FfUet7J**HW8h7L27jpT74!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 
 ### 5.分布式锁
+
+利用的是Zookeeper的**临时有序节点**。
+
+**需求**: 在**分布式**系统中, 容一出现**多台主机操作同一资源**的情况, 比如两台主机同时往一个文件中追加写入文本, 如果不去做任何的控制, 很有可能出现一个写入操作被另一个写入操作**覆盖**掉的状况。
+
+**方案**: 此时我们可以来一把锁, 哪个主机**获取到了这把锁**, 就**执行写入**, 另一台主机等待; 直到写入操作执行完毕，另一台主机再去获得锁，然后写入. 这把锁就称为**分布式锁**, 也就是说:分布式锁是控制分布式系统之间**同步访问共享资源**的一种方式。
+
+**实现**: 使用Zookeeper的**临时有序节点**可以轻松实现这一需求。
+1. **所有**需要执行操作的主机都去Zookeeper上创建一个**临时有序节点**。
+2. 然后获取到Zookeeper上创建出来的这些节点进行一个**从小到大的排序**。
+3. 判断自己创建的节点是不是**最小**的, 如果是, 自己就获取到了锁; 如果**不是**, 则对最小的节点**注册一个监听**。
+4. 如果自己**获取**到了锁, 就去**执行**相应的操作. 当**执行完毕**之后, 连接断开, **节点消失**, 锁就被释放了。
+5. 如果自己没有获取到锁, 就等待, 一直监听节点是否消失，**锁被释放后**, 再**重新执行抢夺**锁的操作。
+![image](http://m.qpic.cn/psc?/V51l0rcS20UiU61WKyG44Mc0pk23AOpL/bqQfVz5yrrGYSXMvKr.cqRpvUD4YP6bGPij42gGnDibR3oLW9D2BGCdr79lneJ6JDgf3J4*smMp.LBm02De5w3JuJhzSRB8M7wE6WiZ4Ix8!/b&bo=*wTyAgAAAAADByk!&rf=viewer_4)
 
 # 三、
